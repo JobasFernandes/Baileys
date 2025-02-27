@@ -211,11 +211,6 @@ export const prepareWAMessageMedia = async(
 					logger?.debug('processed waveform')
 				}
 
-				if(requiresWaveformProcessing) {
-					uploadData.waveform = await getAudioWaveform(bodyPath!, logger)
-					logger?.debug('processed waveform')
-				}
-
 				if(requiresAudioBackground) {
 					uploadData.backgroundArgb = await assertColor(options.backgroundColor)
 					logger?.debug('computed backgroundColor audio status')
@@ -230,8 +225,13 @@ export const prepareWAMessageMedia = async(
 				encWriteStream.destroy()
 				// remove tmp files
 				if(didSaveToTmpPath && bodyPath) {
-					await fs.unlink(bodyPath)
-					logger?.debug('removed tmp files')
+					try {
+						await fs.access(bodyPath)
+						await fs.unlink(bodyPath)
+						logger?.debug('removed tmp file')
+					} catch(error) {
+						logger?.warn('failed to remove tmp file')
+					}
 				}
 			}
 		)
@@ -727,7 +727,11 @@ export const extractMessageContent = (content: WAMessageContent | undefined | nu
 /**
  * Returns the device predicted by message ID
  */
-export const getDevice = (id: string) => /^3A.{18}$/.test(id) ? 'ios' : /^3E.{20}$/.test(id) ? 'web' : /^(.{21}|.{32})$/.test(id) ? 'android' : /^.{18}$/.test(id) ? 'desktop' : 'unknown'
+export const getDevice = (id: string) => /^3A.{18}$/.test(id) ? 'ios' :
+	/^3E.{20}$/.test(id) ? 'web' :
+		/^(.{21}|.{32})$/.test(id) ? 'android' :
+			/^(3F|.{18}$)/.test(id) ? 'desktop' :
+				'unknown'
 
 /** Upserts a receipt in the message */
 export const updateMessageWithReceipt = (msg: Pick<WAMessage, 'userReceipt'>, receipt: MessageUserReceipt) => {
